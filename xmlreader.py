@@ -23,10 +23,8 @@ def extract_xml_data(xml_content):
     return data
 
 def main():
-    folder_path = st.text_input('Ruta de la carpeta')
-    button_load_folder = st.button('Cargar carpeta')
-
-    if button_load_folder and folder_path:
+    folder_path = st.text_input('Ruta de la carpeta (ejemplo: C:\\carpeta):')
+    if st.button('Cargar carpeta'):
         xml_files = [file for file in os.listdir(folder_path) if file.endswith('.xml')]
 
         for xml_file in xml_files:

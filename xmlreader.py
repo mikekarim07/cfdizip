@@ -1,38 +1,148 @@
-import streamlit as st
 import os
+import zipfile
+import pandas as pd
 import xml.etree.ElementTree as ET
+import streamlit as st
+import tempfile
 
-def extract_xml_data(xml_content):
-    # Lógica para extraer información del XML y devolver un diccionario
-    # Personaliza esta función según tus necesidades
-    root = ET.fromstring(xml_content)
-    data = {
-        'version': root.attrib.get('Version', ''),
-        'forma_de_pago': root.attrib.get('FormaPago', ''),
-        'regimen': root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', ''),
-        'tipo_de_comprobante': root.attrib.get('TipoDeComprobante', ''),
-        'rfc_emisor': root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Rfc', ''),
-        'nombre_emisor': root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Nombre', ''),
-        'rfc_receptor': root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Rfc', ''),
-        'nombre_receptor': root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Nombre', ''),
-        'subtotal': root.attrib.get('SubTotal', ''),
-        'total': root.attrib.get('Total', ''),
-        'uuid': root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', ''),
-        'fecha_emision': root.attrib.get('Fecha', '')
+
+def extract_xml_data(xml_file):
+    namespaces = {
+        'cfdi': 'http://www.sat.gob.mx/cfd/3',
+        'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital',
+        'pago10': 'http://www.sat.gob.mx/Pagos'
     }
-    return data
+
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    data = {}
+    data['Version'] = root.attrib.get('Version', '')
+    data['FormaPago'] = root.attrib.get('FormaPago', '')
+    data['RegimenFiscal'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', '')
+    data['TipoDeComprobante'] = root.attrib.get('TipoDeComprobante', '')
+    data['RfcEmisor'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Rfc', '')
+    data['NombreEmisor'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Nombre', '')
+    data['RfcReceptor'] = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Rfc', '')
+    data['NombreReceptor'] = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Nombre', '')
+    data['SubTotal'] = root.attrib.get('SubTotal', '')
+    data['Total'] = root.attrib.get('Total', '')
+    data['UUID'] = root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', '')
+    data['FechaEmision'] = root.attrib.get('Fecha', '')
+
+    conceptos = []
+    impuestos = []
+
+    for concepto in root.findall('cfdi:Conceptos/cfdi:Concepto', namespaces=namespaces):
+        concepto_data = {
+            'ClaveProdServ': concepto.attrib.get('ClaveProdServ', ''),
+            'NoIdentificacion': concepto.attrib.get('NoIdentificacion', ''),
+            'Cantidad': concepto.attrib.get('Cantidad', ''),
+            'ClaveUnidad': concepto.attrib.get('ClaveUnidad', ''),
+            'Descripcion': concepto.attrib.get('Descripcion', ''),
+            'Unidad': concepto.attrib.get('Unidad', ''),
+            'ValorUnitario': concepto.attrib.get('ValorUnitario', ''),
+            'Importe': concepto.attrib.get('Importe', ''),
+            'Descuento': concepto.attrib.get('Descuento', '')
+        }
+        conceptos.append(concepto_data)
+
+        for impuesto in concepto.findall('cfdi:Impuestos/cfdi:Traslados/cfdi:Traslado', namespaces=namespaces):
+            impuesto_data = {
+                'Base': impuesto.attrib.get('Base', ''),
+                'Impuesto': impuesto.attrib.get('Impuesto', ''),
+                'TipoFactor': impuesto.attrib.get('TipoFactor', ''),
+                'TasaOCuota': impuesto.attrib.get('TasaOCuota', ''),
+                'Importe': impuesto.attrib.get('Importe', '')
+            }
+            impuestos.append(impuesto_data)
+
+    return data, conceptos, impuestos
+
+
+def process_zip_files(folder_path):
+    xml_data = []
+    temp_dir = tempfile.mkdtemp()  # Create a temporary directory in the cache
+
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.zip'):
+                file_path = os.path.join(root, file)
+                with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+                xml_files = [f for f in zip_ref.namelist() if f.endswith('.xml')]
+                for xml_file in xml_files:
+                    xml_path = os.path.join(temp_dir, xml_file)
+                    data, conceptos, impuestos = extract_xml_data(xml_path)
+                    xml_data.append({
+                        'File': xml_file,
+                        'Data': data,
+                        'Conceptos': conceptos,
+                        'Impuestos': impuestos
+                    })
+
+    return xml_data
+
 
 def main():
-    folder_path = st.text_input('Ruta de la carpeta (ejemplo: C:\\carpeta):')
-    if st.button('Cargar carpeta'):
-        xml_files = [file for file in os.listdir(folder_path) if file.endswith('.xml')]
+    st.title("XML Data Extraction")
 
-        for xml_file in xml_files:
-            xml_content = open(os.path.join(folder_path, xml_file), 'rb').read()
-            data = extract_xml_data(xml_content)
+    folder_path = st.text_input("Enter folder path:")
+    if st.button("Process"):
+        if not os.path.isdir(folder_path):
+            st.error("Invalid folder path!")
+            return
 
-            # Haz lo que desees con los datos extraídos del XML
-            st.write(data)
+        xml_data = process_zip_files(folder_path)
 
-if __name__ == '__main__':
+        if not xml_data:
+            st.warning("No XML files found!")
+
+        rows = []
+        for xml in xml_data:
+            file = xml['File']
+            data = xml['Data']
+            conceptos = xml['Conceptos']
+            impuestos = xml['Impuestos']
+            for concepto in conceptos:
+                for impuesto in impuestos:
+                    row = {
+                        'File': file,
+                        'Version': data['Version'],
+                        'FormaPago': data['FormaPago'],
+                        'RegimenFiscal': data['RegimenFiscal'],
+                        'TipoDeComprobante': data['TipoDeComprobante'],
+                        'RfcEmisor': data['RfcEmisor'],
+                        'NombreEmisor': data['NombreEmisor'],
+                        'RfcReceptor': data['RfcReceptor'],
+                        'NombreReceptor': data['NombreReceptor'],
+                        'SubTotal': data['SubTotal'],
+                        'Total': data['Total'],
+                        'UUID': data['UUID'],
+                        'FechaEmision': data['FechaEmision'],
+                        'ClaveProdServ': concepto['ClaveProdServ'],
+                        'NoIdentificacion': concepto['NoIdentificacion'],
+                        'Cantidad': concepto['Cantidad'],
+                        'ClaveUnidad': concepto['ClaveUnidad'],
+                        'Descripcion': concepto['Descripcion'],
+                        'Unidad': concepto['Unidad'],
+                        'ValorUnitario': concepto['ValorUnitario'],
+                        'Importe': concepto['Importe'],
+                        'Descuento': concepto['Descuento'],
+                        'Base': impuesto['Base'],
+                        'Impuesto': impuesto['Impuesto'],
+                        'TipoFactor': impuesto['TipoFactor'],
+                        'TasaOCuota': impuesto['TasaOCuota'],
+                        'ImporteImpuesto': impuesto['Importe']
+                    }
+                    rows.append(row)
+
+        if rows:
+            df = pd.DataFrame(rows)
+            st.write(df)
+        else:
+            st.warning("No data to display!")
+
+
+if __name__ == "__main__":
     main()

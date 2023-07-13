@@ -2,7 +2,6 @@ import os
 import zipfile
 import pandas as pd
 import xml.etree.ElementTree as ET
-import streamlit as st
 import tempfile
 
 
@@ -62,7 +61,7 @@ def extract_xml_data(xml_file):
 
 def process_zip_files(folder_path):
     xml_data = []
-    temp_dir = tempfile.mkdtemp()  # Create a temporary directory in the cache
+    temp_dir = tempfile.mkdtemp()  # Create a temporary directory
 
     for root, dirs, files in os.walk(folder_path):
         for file in files:
@@ -70,7 +69,7 @@ def process_zip_files(folder_path):
                 file_path = os.path.join(root, file)
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
-                xml_files = [f for f in zip_ref.namelist() if f.endswith('.xml')]
+                xml_files = [f for f in os.listdir(temp_dir) if f.endswith('.xml')]
                 for xml_file in xml_files:
                     xml_path = os.path.join(temp_dir, xml_file)
                     data, conceptos, impuestos = extract_xml_data(xml_path)
@@ -84,65 +83,59 @@ def process_zip_files(folder_path):
     return xml_data
 
 
-def main():
-    st.title("XML Data Extraction")
+def main(folder_path):
+    xml_data = process_zip_files(folder_path)
 
-    folder_path = st.text_input("Enter folder path:")
-    if st.button("Process"):
-        if not os.path.isdir(folder_path):
-            st.error("Invalid folder path!")
-            return
+    if not xml_data:
+        print("No XML files found!")
+        return
 
-        xml_data = process_zip_files(folder_path)
+    rows = []
+    for xml in xml_data:
+        file = xml['File']
+        data = xml['Data']
+        conceptos = xml['Conceptos']
+        impuestos = xml['Impuestos']
+        for concepto in conceptos:
+            for impuesto in impuestos:
+                row = {
+                    'File': file,
+                    'Version': data['Version'],
+                    'FormaPago': data['FormaPago'],
+                    'RegimenFiscal': data['RegimenFiscal'],
+                    'TipoDeComprobante': data['TipoDeComprobante'],
+                    'RfcEmisor': data['RfcEmisor'],
+                    'NombreEmisor': data['NombreEmisor'],
+                    'RfcReceptor': data['RfcReceptor'],
+                    'NombreReceptor': data['NombreReceptor'],
+                    'SubTotal': data['SubTotal'],
+                    'Total': data['Total'],
+                    'UUID': data['UUID'],
+                    'FechaEmision': data['FechaEmision'],
+                    'ClaveProdServ': concepto['ClaveProdServ'],
+                    'NoIdentificacion': concepto['NoIdentificacion'],
+                    'Cantidad': concepto['Cantidad'],
+                    'ClaveUnidad': concepto['ClaveUnidad'],
+                    'Descripcion': concepto['Descripcion'],
+                    'Unidad': concepto['Unidad'],
+                    'ValorUnitario': concepto['ValorUnitario'],
+                    'Importe': concepto['Importe'],
+                    'Descuento': concepto['Descuento'],
+                    'Base': impuesto['Base'],
+                    'Impuesto': impuesto['Impuesto'],
+                    'TipoFactor': impuesto['TipoFactor'],
+                    'TasaOCuota': impuesto['TasaOCuota'],
+                    'ImporteImpuesto': impuesto['Importe']
+                }
+                rows.append(row)
 
-        if not xml_data:
-            st.warning("No XML files found!")
-
-        rows = []
-        for xml in xml_data:
-            file = xml['File']
-            data = xml['Data']
-            conceptos = xml['Conceptos']
-            impuestos = xml['Impuestos']
-            for concepto in conceptos:
-                for impuesto in impuestos:
-                    row = {
-                        'File': file,
-                        'Version': data['Version'],
-                        'FormaPago': data['FormaPago'],
-                        'RegimenFiscal': data['RegimenFiscal'],
-                        'TipoDeComprobante': data['TipoDeComprobante'],
-                        'RfcEmisor': data['RfcEmisor'],
-                        'NombreEmisor': data['NombreEmisor'],
-                        'RfcReceptor': data['RfcReceptor'],
-                        'NombreReceptor': data['NombreReceptor'],
-                        'SubTotal': data['SubTotal'],
-                        'Total': data['Total'],
-                        'UUID': data['UUID'],
-                        'FechaEmision': data['FechaEmision'],
-                        'ClaveProdServ': concepto['ClaveProdServ'],
-                        'NoIdentificacion': concepto['NoIdentificacion'],
-                        'Cantidad': concepto['Cantidad'],
-                        'ClaveUnidad': concepto['ClaveUnidad'],
-                        'Descripcion': concepto['Descripcion'],
-                        'Unidad': concepto['Unidad'],
-                        'ValorUnitario': concepto['ValorUnitario'],
-                        'Importe': concepto['Importe'],
-                        'Descuento': concepto['Descuento'],
-                        'Base': impuesto['Base'],
-                        'Impuesto': impuesto['Impuesto'],
-                        'TipoFactor': impuesto['TipoFactor'],
-                        'TasaOCuota': impuesto['TasaOCuota'],
-                        'ImporteImpuesto': impuesto['Importe']
-                    }
-                    rows.append(row)
-
-        if rows:
-            df = pd.DataFrame(rows)
-            st.write(df)
-        else:
-            st.warning("No data to display!")
+    if rows:
+        df = pd.DataFrame(rows)
+        print(df)
+    else:
+        print("No data to display!")
 
 
 if __name__ == "__main__":
-    main()
+    folder_path = "/path/to/folder"  # Replace with the desired folder path
+    main(folder_path)

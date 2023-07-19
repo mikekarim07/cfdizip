@@ -1,146 +1,330 @@
-import os
-import zipfile
+import streamlit as st
 import pandas as pd
 import xml.etree.ElementTree as ET
-import streamlit as st
-import tempfile
+import os
+import zipfile
+import time
 
 
-def extract_xml_data(xml_file):
+def extract_xml_files(zip_files):
+    extracted_files = []
+
+    for zip_file in zip_files:
+        with zipfile.ZipFile(zip_file, 'r') as zf:
+            # Extract XML files to a temporary folder
+            extract_folder = 'temp'
+            zf.extractall(extract_folder)
+            
+            # Add extracted XML files to the list
+            for root, _, files in os.walk(extract_folder):
+                for file in files:
+                    if file.endswith('.xml'):
+                        extracted_files.append(os.path.join(root, file))
+
+    return extracted_files
+
+
+
+def cfdv40(xml_file):
+    # Parsing XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Namespace dictionary
+    namespaces = {
+        'cfdi': 'http://www.sat.gob.mx/cfd/4',
+        'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital',
+        'pago10': 'http://www.sat.gob.mx/Pagos'
+    }
+
+    # Extracting desired data from XML
+    version = root.attrib.get('Version', '')
+    forma_de_pago = root.attrib.get('FormaPago', '')
+    regimen = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', '')
+    tipo_de_comprobante = root.attrib.get('TipoDeComprobante', '')
+    rfc_emisor = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Rfc', '')
+    nombre_emisor = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Nombre', '')
+    rfc_receptor = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Rfc', '')
+    nombre_receptor = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Nombre', '')
+    subtotal = root.attrib.get('SubTotal', '')
+    total = root.attrib.get('Total', '')
+    uuid = root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', '')
+    fecha_emision = root.attrib.get('Fecha', '')
+
+    return {
+        'version': version,
+        'forma_de_pago': forma_de_pago,
+        'regimen': regimen,
+        'tipo_de_comprobante': tipo_de_comprobante,
+        'rfc_emisor': rfc_emisor,
+        'nombre_emisor': nombre_emisor,
+        'rfc_receptor': rfc_receptor,
+        'nombre_receptor': nombre_receptor,
+        'subtotal': subtotal,
+        'total': total,
+        'uuid': uuid,
+        'fecha_emision': fecha_emision
+    }
+
+
+def cfdv33(xml_file):
+    # Parsing XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Namespace dictionary
     namespaces = {
         'cfdi': 'http://www.sat.gob.mx/cfd/3',
         'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital',
         'pago10': 'http://www.sat.gob.mx/Pagos'
     }
 
+    # Extracting desired data from XML
+    version = root.attrib.get('Version', '')
+    forma_de_pago = root.attrib.get('FormaPago', '')
+    regimen = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', '')
+    tipo_de_comprobante = root.attrib.get('TipoDeComprobante', '')
+    rfc_emisor = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Rfc', '')
+    nombre_emisor = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Nombre', '')
+    rfc_receptor = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Rfc', '')
+    nombre_receptor = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Nombre', '')
+    subtotal = root.attrib.get('SubTotal', '')
+    total = root.attrib.get('Total', '')
+    uuid = root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', '')
+    fecha_emision = root.attrib.get('Fecha', '')
+    impuestos = root.find('', namespaces=namespaces).attrib.get('Rfc', '')
+
+    return {
+        'version': version,
+        'forma_de_pago': forma_de_pago,
+        'regimen': regimen,
+        'tipo_de_comprobante': tipo_de_comprobante,
+        'rfc_emisor': rfc_emisor,
+        'nombre_emisor': nombre_emisor,
+        'rfc_receptor': rfc_receptor,
+        'nombre_receptor': nombre_receptor,
+        'subtotal': subtotal,
+        'total': total,
+        'uuid': uuid,
+        'fecha_emision': fecha_emision,
+        'impuestos': impuestos
+    }
+
+
+def cfdcomp33(xml_file):
+    # Parsing XML file
     tree = ET.parse(xml_file)
     root = tree.getroot()
 
-    data = {}
-    data['Version'] = root.attrib.get('Version', '')
-    data['FormaPago'] = root.attrib.get('FormaPago', '')
-    data['RegimenFiscal'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', '')
-    data['TipoDeComprobante'] = root.attrib.get('TipoDeComprobante', '')
-    data['RfcEmisor'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Rfc', '')
-    data['NombreEmisor'] = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('Nombre', '')
-    data['RfcReceptor'] = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Rfc', '')
-    data['NombreReceptor'] = root.find('cfdi:Receptor', namespaces=namespaces).attrib.get('Nombre', '')
-    data['SubTotal'] = root.attrib.get('SubTotal', '')
-    data['Total'] = root.attrib.get('Total', '')
-    data['UUID'] = root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', '')
-    data['FechaEmision'] = root.attrib.get('Fecha', '')
+    # Namespace dictionary
+    ns = {
+        "cfdi": "http://www.sat.gob.mx/cfd/3",
+        "pago10": "http://www.sat.gob.mx/Pagos",
+        "tfd": "http://www.sat.gob.mx/TimbreFiscalDigital"
+    }
 
-    conceptos = []
-    impuestos = []
+    # Extracting desired data from XML
+    pago_element = root.find("cfdi:Complemento/pago10:Pagos/pago10:Pago", ns)
 
-    for concepto in root.findall('cfdi:Conceptos/cfdi:Concepto', namespaces=namespaces):
-        concepto_data = {
-            'ClaveProdServ': concepto.attrib.get('ClaveProdServ', ''),
-            'NoIdentificacion': concepto.attrib.get('NoIdentificacion', ''),
-            'Cantidad': concepto.attrib.get('Cantidad', ''),
-            'ClaveUnidad': concepto.attrib.get('ClaveUnidad', ''),
-            'Descripcion': concepto.attrib.get('Descripcion', ''),
-            'Unidad': concepto.attrib.get('Unidad', ''),
-            'ValorUnitario': concepto.attrib.get('ValorUnitario', ''),
-            'Importe': concepto.attrib.get('Importe', ''),
-            'Descuento': concepto.attrib.get('Descuento', '')
-        }
-        conceptos.append(concepto_data)
+    fecha_pago = pago_element.attrib.get("FechaPago")
+    forma_pago = pago_element.attrib.get("FormaDePagoP")
+    moneda_pago = pago_element.attrib.get("MonedaP")
+    monto = pago_element.attrib.get("Monto")
+    tipo_de_comprobante = root.attrib.get('TipoDeComprobante', '')
 
-        for impuesto in concepto.findall('cfdi:Impuestos/cfdi:Traslados/cfdi:Traslado', namespaces=namespaces):
-            impuesto_data = {
-                'Base': impuesto.attrib.get('Base', ''),
-                'Impuesto': impuesto.attrib.get('Impuesto', ''),
-                'TipoFactor': impuesto.attrib.get('TipoFactor', ''),
-                'TasaOCuota': impuesto.attrib.get('TasaOCuota', ''),
-                'Importe': impuesto.attrib.get('Importe', '')
-            }
-            impuestos.append(impuesto_data)
+    doc_relacionado_element = pago_element.find("pago10:DoctoRelacionado", ns)
+    id_documento = doc_relacionado_element.attrib.get("IdDocumento")
+    moneda_dr = doc_relacionado_element.attrib.get("MonedaDR")
+    metodo_pago_dr = doc_relacionado_element.attrib.get("MetodoDePagoDR")
+    num_parcialidad = doc_relacionado_element.attrib.get("NumParcialidad")
+    imp_saldo_ant = doc_relacionado_element.attrib.get("ImpSaldoAnt")
+    imp_pagado = doc_relacionado_element.attrib.get("ImpPagado")
+    imp_saldo_insoluto = doc_relacionado_element.attrib.get("ImpSaldoInsoluto")
 
-    return data, conceptos, impuestos
+    return {
+        "version": root.attrib.get("Version"),
+        "tipo comprobante": root.attrib.get('TipoDeComprobante'),
+        "Fecha": root.attrib.get("Fecha"),
+        "RFC emisor": root.find("cfdi:Emisor", ns).attrib.get("Rfc"),
+        "Nombre emisor": root.find("cfdi:Emisor", ns).attrib.get("Nombre"),
+        "RFC receptor": root.find("cfdi:Receptor", ns).attrib.get("Rfc"),
+        "Nombre receptor": root.find("cfdi:Receptor", ns).attrib.get("Nombre"),
+        "uso_cfdi": root.find("cfdi:Receptor", ns).attrib.get("UsoCFDI"),
+        "UUID": root.find("cfdi:Complemento/tfd:TimbreFiscalDigital", ns).attrib.get("UUID"),
+        "FechaPago": fecha_pago,
+        "FormaDePagoP": forma_pago,
+        "MonedaP": moneda_pago,
+        "Monto": monto,
+        "IdDocumento": id_documento,
+        "MonedaDR": moneda_dr,
+        "MetodoDePagoDR": metodo_pago_dr,
+        "NumParcialidad": num_parcialidad,
+        "ImpSaldoAnt": imp_saldo_ant,
+        "ImpPagado": imp_pagado,
+        "ImpSaldoInsoluto": imp_saldo_insoluto
+    }
 
 
-def process_zip_files(zip_files):
-    xml_data = []
-    temp_dir = tempfile.mkdtemp()  # Create a temporary directory in the cache
+def cfdcomp40(xml_file):
+    # Parsing XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
 
-    for file_data in zip_files:
-        file_name = file_data.name
-        file_path = os.path.join(temp_dir, file_name)
-        with open(file_path, 'wb') as f:
-            f.write(file_data.getbuffer())
+    # Namespace dictionary
+    ns = {
+        "cfdi": "http://www.sat.gob.mx/cfd/4",
+        "pago20": "http://www.sat.gob.mx/Pagos20",
+        "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "tfd": "http://www.sat.gob.mx/TimbreFiscalDigital"
+    }
 
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+    # Extracting desired data from XML
+    pago_element = root.find("cfdi:Complemento/pago20:Pagos/pago20:Pago", ns)
 
-        xml_files = [f for f in zip_ref.namelist() if f.endswith('.xml')]
-        for xml_file in xml_files:
-            xml_path = os.path.join(temp_dir, xml_file)
-            data, conceptos, impuestos = extract_xml_data(xml_path)
-            xml_data.append({
-                'File': xml_file,
-                'Data': data,
-                'Conceptos': conceptos,
-                'Impuestos': impuestos
-            })
+    fecha_pago = pago_element.attrib.get("FechaPago")
+    forma_pago = pago_element.attrib.get("FormaDePagoP")
+    moneda_pago = pago_element.attrib.get("MonedaP")
+    monto = pago_element.attrib.get("Monto")
 
-    return xml_data
+    doc_relacionado_element = pago_element.find("pago20:DoctoRelacionado", ns)
+    id_documento = doc_relacionado_element.attrib.get("IdDocumento")
+    moneda_dr = doc_relacionado_element.attrib.get("MonedaDR")
+    metodo_pago_dr = doc_relacionado_element.attrib.get("MetodoDePagoDR")
+    num_parcialidad = doc_relacionado_element.attrib.get("NumParcialidad")
+    imp_saldo_ant = doc_relacionado_element.attrib.get("ImpSaldoAnt")
+    imp_pagado = doc_relacionado_element.attrib.get("ImpPagado")
+    imp_saldo_insoluto = doc_relacionado_element.attrib.get("ImpSaldoInsoluto")
+
+    return {
+        "version": root.attrib.get("Version"),
+        "Fecha": root.attrib.get("Fecha"),
+        "RFC emisor": root.find("cfdi:Emisor", ns).attrib.get("Rfc"),
+        "Nombre emisor": root.find("cfdi:Emisor", ns).attrib.get("Nombre"),
+        "RFC receptor": root.find("cfdi:Receptor", ns).attrib.get("Rfc"),
+        "Nombre receptor": root.find("cfdi:Receptor", ns).attrib.get("Nombre"),
+        "uso_cfdi": root.find("cfdi:Receptor", ns).attrib.get("UsoCFDI"),
+        "UUID": root.find("cfdi:Complemento/tfd:TimbreFiscalDigital", ns).attrib.get("UUID"),
+        "FechaPago": fecha_pago,
+        "FormaDePagoP": forma_pago,
+        "MonedaP": moneda_pago,
+        "Monto": monto,
+        "IdDocumento": id_documento,
+        "MonedaDR": moneda_dr,
+        "MetodoDePagoDR": metodo_pago_dr,
+        "NumParcialidad": num_parcialidad,
+        "ImpSaldoAnt": imp_saldo_ant,
+        "ImpPagado": imp_pagado,
+        "ImpSaldoInsoluto": imp_saldo_insoluto
+    }
 
 
 def main():
-    st.title("XML Data Extraction")
+    st.title("XML Processing App")
 
-    zip_files = st.file_uploader("Upload ZIP Files", accept_multiple_files=True)
-    if st.button("Process") and zip_files:
-        xml_data = process_zip_files(zip_files)
+    # Upload multiple zip files
+    uploaded_files = st.file_uploader("Upload multiple zip files", accept_multiple_files=True)
 
-        if not xml_data:
-            st.warning("No XML files found!")
+    if st.button("Process"):
+        if uploaded_files:
+            # Extract XML files from zip files
+            extracted_files = extract_xml_files(uploaded_files)
+            st.dataframe(extracted_files)
+            total_archivos = len(extracted_files)
+            st.info(f'Total de archivos en la carpeta: {total_archivos}')
 
-        rows = []
-        for xml in xml_data:
-            file = xml['File']
-            data = xml['Data']
-            conceptos = xml['Conceptos']
-            impuestos = xml['Impuestos']
-            for concepto in conceptos:
-                for impuesto in impuestos:
-                    row = {
-                        'File': file,
-                        'Version': data['Version'],
-                        'FormaPago': data['FormaPago'],
-                        'RegimenFiscal': data['RegimenFiscal'],
-                        'TipoDeComprobante': data['TipoDeComprobante'],
-                        'RfcEmisor': data['RfcEmisor'],
-                        'NombreEmisor': data['NombreEmisor'],
-                        'RfcReceptor': data['RfcReceptor'],
-                        'NombreReceptor': data['NombreReceptor'],
-                        'SubTotal': data['SubTotal'],
-                        'Total': data['Total'],
-                        'UUID': data['UUID'],
-                        'FechaEmision': data['FechaEmision'],
-                        'ClaveProdServ': concepto['ClaveProdServ'],
-                        'NoIdentificacion': concepto['NoIdentificacion'],
-                        'Cantidad': concepto['Cantidad'],
-                        'ClaveUnidad': concepto['ClaveUnidad'],
-                        'Descripcion': concepto['Descripcion'],
-                        'Unidad': concepto['Unidad'],
-                        'ValorUnitario': concepto['ValorUnitario'],
-                        'Importe': concepto['Importe'],
-                        'Descuento': concepto['Descuento'],
-                        'Base': impuesto['Base'],
-                        'Impuesto': impuesto['Impuesto'],
-                        'TipoFactor': impuesto['TipoFactor'],
-                        'TasaOCuota': impuesto['TasaOCuota'],
-                        'ImporteImpuesto': impuesto['Importe']
-                    }
-                    rows.append(row)
+            start_time = time.time()
+            
+            data_parse_cfd40 = []
+            data_parse_cfd33 = []
+            # data_parse_cfd32 = []
+            data_parse_cfdcomp33 = []
+            data_parse_cfdcomp40 = []
+            cfd40_not_processed = []
+            cfdv33_not_processed = []
+            # xml_files_not_processed_parse_xml32 = []
+            cfdcomp33_not_processed = []
+            cfdcomp40_not_processed = []
+            
+            # df_cfd32 = pd.DataFrame()  # Inicializar df_parse_xml32 como un DataFrame vacío
+            df_cfdv33 = pd.DataFrame()  # Inicializar df_parse_xml33 como un DataFrame vacío
+            df_cfdv40 = pd.DataFrame()  # Inicializar df_parse_xml4 como un DataFrame vacío
+            df_cfdcomp33 = pd.DataFrame()  # Inicializar df_parse_xmlcomp33 como un DataFrame vacío
+            df_cfdcomp40 = pd.DataFrame()  # Inicializar df_parse_xmlcomp40 como un DataFrame vacío
+            for xml_path in extracted_files:
+                try:
+                    xml_data_parse_cfdv33 = cfdv33(xml_path)
+                    data_parse_cfd33.append(xml_data_parse_cfdv33)
+                except Exception as e:
+                    cfdv33_not_processed.append(xml_path)
+            
+                try:
+                    xml_data_parse_cfd40 = cfdv40(xml_path)
+                    data_parse_cfd40.append(xml_data_parse_cfd40)
+                except Exception as e:
+                    cfd40_not_processed.append(xml_path)
 
-        if rows:
-            df = pd.DataFrame(rows)
-            st.write(df)
-        else:
-            st.warning("No data to display!")
+                try:
+                    xml_data_parse_cfdcomp33 = cfdcomp33(xml_path)
+                    data_parse_cfdcomp33.append(xml_data_parse_cfdcomp33)
+                except Exception as e:
+                    cfdcomp33_not_processed.append(xml_path)
+
+                try:
+                    xml_data_parse_cfdcomp40 = cfdcomp40(xml_path)
+                    data_parse_cfdcomp40.append(xml_data_parse_cfdcomp40)
+                except Exception as e:
+                    cfdcomp40_not_processed.append(xml_path)
+
+                # try:
+                #     xml_data_parse_cfd40 = cfdv40(xml_path)
+                #     df_cfdv40.append(xml_data_parse_cfd40)
+                # except Exception as e:
+                #     cfd40_not_processed.append(xml_path)
+
+            end_time = time.time()
+            processing_time = end_time - start_time
+            processing_time_formatted = "{:.4f}".format(processing_time)
+            st.info(f'Se encontraron un total de {total_archivos} archivos, los cuales fueron procesados en un tiempo total de: {processing_time_formatted} segundos')
+            
+            df_cfdv33 = pd.DataFrame(data_parse_cfd33)
+            df_cfdv40 = pd.DataFrame(data_parse_cfd40)
+            df_cfdcomp33 = pd.DataFrame(data_parse_cfdcomp33)
+            df_cfdcomp40 = pd.DataFrame(data_parse_cfdcomp40)
+            
+            st.caption('CFDIs Version 3.3')
+            st.write(df_cfdv33.shape)
+            st.dataframe(df_cfdv33)
+            
+            st.caption('CFDIs Version 4.0')
+            st.write(df_cfdv40.shape)
+            st.dataframe(df_cfdv40)
+
+            st.caption('Complementos de Pago Version 3.3')
+            st.write(df_cfdcomp33.shape)
+            st.dataframe(df_cfdcomp33)
+
+            st.caption('Complementos de Pago Version 4.0')
+            st.write(df_cfdcomp40.shape)
+            st.dataframe(df_cfdcomp40)
+
+            # df_cfdv32 = pd.DataFrame(data_parse_xmlcomp40)
+            
+            
+            # # Process XML files
+            # general_df, total_impuestos_df, conceptos_df, impuestos_conceptos_df = process_xml_files(extracted_files)
+
+            # # Display dataframes
+            # st.subheader("General Data")
+            # st.dataframe(general_df)
+
+            # st.subheader("Total Impuestos Data")
+            # st.dataframe(total_impuestos_df)
+
+            # st.subheader("Conceptos Data")
+            # st.dataframe(conceptos_df)
+
+            # st.subheader("Impuestos Conceptos Data")
+            # st.dataframe(impuestos_conceptos_df)
 
 
 if __name__ == "__main__":

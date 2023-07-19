@@ -5,9 +5,8 @@ import os
 import zipfile
 import time
 
-
 def extract_xml_files(zip_files):
-    extracted_files = []
+    extracted_files = set()
 
     for zip_file in zip_files:
         with zipfile.ZipFile(zip_file, 'r') as zf:
@@ -15,13 +14,30 @@ def extract_xml_files(zip_files):
             extract_folder = 'temp'
             zf.extractall(extract_folder)
             
-            # Add extracted XML files to the list
+            # Add extracted XML files to the set
             for root, _, files in os.walk(extract_folder):
                 for file in files:
                     if file.endswith('.xml'):
-                        extracted_files.append(os.path.join(root, file))
+                        extracted_files.add(os.path.join(root, file))
 
-    return extracted_files
+    return list(extracted_files)
+
+# def extract_xml_files(zip_files):
+#     extracted_files = []
+
+#     for zip_file in zip_files:
+#         with zipfile.ZipFile(zip_file, 'r') as zf:
+#             # Extract XML files to a temporary folder
+#             extract_folder = 'temp'
+#             zf.extractall(extract_folder)
+            
+#             # Add extracted XML files to the list
+#             for root, _, files in os.walk(extract_folder):
+#                 for file in files:
+#                     if file.endswith('.xml'):
+#                         extracted_files.append(os.path.join(root, file))
+
+#     return extracted_files
 
 
 

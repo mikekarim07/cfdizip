@@ -22,21 +22,34 @@ def extract_xml_files(zip_files):
 
     return list(extracted_files)
 
+# def extract_xml_files(zip_files):
+#     extracted_files = []
+
+#     for zip_file in zip_files:
+#         with zipfile.ZipFile(zip_file, 'r') as zf:
+#             # Extract XML files to a temporary folder
+#             extract_folder = 'temp'
+#             zf.extractall(extract_folder)
+            
+#             # Add extracted XML files to the list
+#             for root, _, files in os.walk(extract_folder):
+#                 for file in files:
+#                     if file.endswith('.xml'):
+#                         extracted_files.append(os.path.join(root, file))
+
+#     return extracted_files
+
 
 
 def cfdv40(xml_file):
-    # Parsing XML file
     tree = ET.parse(xml_file)
     root = tree.getroot()
 
-    # Namespace dictionary
     namespaces = {
         'cfdi': 'http://www.sat.gob.mx/cfd/4',
-        'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital',
-        'pago10': 'http://www.sat.gob.mx/Pagos'
+        'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital'
     }
 
-    # Extracting desired data from XML
     version = root.attrib.get('Version', '')
     forma_de_pago = root.attrib.get('FormaPago', '')
     regimen = root.find('cfdi:Emisor', namespaces=namespaces).attrib.get('RegimenFiscal', '')
@@ -51,20 +64,19 @@ def cfdv40(xml_file):
     fecha_emision = root.attrib.get('Fecha', '')
 
     return {
-        'version': version,
-        'forma_de_pago': forma_de_pago,
-        'regimen': regimen,
-        'tipo_de_comprobante': tipo_de_comprobante,
-        'rfc_emisor': rfc_emisor,
-        'nombre_emisor': nombre_emisor,
-        'rfc_receptor': rfc_receptor,
-        'nombre_receptor': nombre_receptor,
-        'subtotal': subtotal,
-        'total': total,
-        'uuid': uuid,
-        'fecha_emision': fecha_emision
+        'Version': version,
+        'FormaPago': forma_de_pago,
+        'RegimenFiscal': regimen,
+        'TipoDeComprobante': tipo_de_comprobante,
+        'RfcEmisor': rfc_emisor,
+        'NombreEmisor': nombre_emisor,
+        'RfcReceptor': rfc_receptor,
+        'NombreReceptor': nombre_receptor,
+        'SubTotal': subtotal,
+        'Total': total,
+        'UUID': uuid,
+        'FechaEmision': fecha_emision
     }
-
 
 
 def cfdv33(xml_file):
@@ -229,6 +241,11 @@ def main():
             st.dataframe(extracted_files)
             total_archivos = len(extracted_files)
             st.info(f'Total de archivos en la carpeta: {total_archivos}')
+            st.text(f"Temporary folder: {os.path.abspath('temp')}")
+
+            with st.expander("List of Extracted XML Files", expanded=True):
+                for xml_file in extracted_files:
+                    st.text(xml_file)
 
             start_time = time.time()
             
@@ -301,11 +318,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-

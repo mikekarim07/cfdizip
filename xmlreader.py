@@ -217,7 +217,6 @@ def cfdcomp40(xml_file):
         "ImpSaldoInsoluto": imp_saldo_insoluto
     }
 
-
 def main():
     st.title("XML Processing App")
 
@@ -234,22 +233,21 @@ def main():
 
             start_time = time.time()
             
+
             data_parse_cfd40 = []
             data_parse_cfd33 = []
-            # data_parse_cfd32 = []
             data_parse_cfdcomp33 = []
             data_parse_cfdcomp40 = []
             cfd40_not_processed = []
             cfdv33_not_processed = []
-            # xml_files_not_processed_parse_xml32 = []
             cfdcomp33_not_processed = []
             cfdcomp40_not_processed = []
             
-            # df_cfd32 = pd.DataFrame()  # Inicializar df_parse_xml32 como un DataFrame vacío
             df_cfdv33 = pd.DataFrame()  # Inicializar df_parse_xml33 como un DataFrame vacío
             df_cfdv40 = pd.DataFrame()  # Inicializar df_parse_xml4 como un DataFrame vacío
             df_cfdcomp33 = pd.DataFrame()  # Inicializar df_parse_xmlcomp33 como un DataFrame vacío
             df_cfdcomp40 = pd.DataFrame()  # Inicializar df_parse_xmlcomp40 como un DataFrame vacío
+            
             for xml_path in extracted_files:
                 try:
                     xml_data_parse_cfdv33 = cfdv33(xml_path)
@@ -274,12 +272,6 @@ def main():
                     data_parse_cfdcomp40.append(xml_data_parse_cfdcomp40)
                 except Exception as e:
                     cfdcomp40_not_processed.append(xml_path)
-
-                # try:
-                #     xml_data_parse_cfd40 = cfdv40(xml_path)
-                #     df_cfdv40.append(xml_data_parse_cfd40)
-                # except Exception as e:
-                #     cfd40_not_processed.append(xml_path)
 
             end_time = time.time()
             processing_time = end_time - start_time
@@ -306,25 +298,6 @@ def main():
             st.caption('Complementos de Pago Version 4.0')
             st.write(df_cfdcomp40.shape)
             st.dataframe(df_cfdcomp40)
-
-            # df_cfdv32 = pd.DataFrame(data_parse_xmlcomp40)
-            
-            
-            # # Process XML files
-            # general_df, total_impuestos_df, conceptos_df, impuestos_conceptos_df = process_xml_files(extracted_files)
-
-            # # Display dataframes
-            # st.subheader("General Data")
-            # st.dataframe(general_df)
-
-            # st.subheader("Total Impuestos Data")
-            # st.dataframe(total_impuestos_df)
-
-            # st.subheader("Conceptos Data")
-            # st.dataframe(conceptos_df)
-
-            # st.subheader("Impuestos Conceptos Data")
-            # st.dataframe(impuestos_conceptos_df)
 
 
 if __name__ == "__main__":

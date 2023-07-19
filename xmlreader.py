@@ -22,23 +22,6 @@ def extract_xml_files(zip_files):
 
     return list(extracted_files)
 
-# def extract_xml_files(zip_files):
-#     extracted_files = []
-
-#     for zip_file in zip_files:
-#         with zipfile.ZipFile(zip_file, 'r') as zf:
-#             # Extract XML files to a temporary folder
-#             extract_folder = 'temp'
-#             zf.extractall(extract_folder)
-            
-#             # Add extracted XML files to the list
-#             for root, _, files in os.walk(extract_folder):
-#                 for file in files:
-#                     if file.endswith('.xml'):
-#                         extracted_files.append(os.path.join(root, file))
-
-#     return extracted_files
-
 
 
 def cfdv40(xml_file):
@@ -83,6 +66,7 @@ def cfdv40(xml_file):
     }
 
 
+
 def cfdv33(xml_file):
     # Parsing XML file
     tree = ET.parse(xml_file)
@@ -92,7 +76,6 @@ def cfdv33(xml_file):
     namespaces = {
         'cfdi': 'http://www.sat.gob.mx/cfd/3',
         'tfd': 'http://www.sat.gob.mx/TimbreFiscalDigital',
-        'pago10': 'http://www.sat.gob.mx/Pagos'
     }
 
     # Extracting desired data from XML
@@ -108,7 +91,7 @@ def cfdv33(xml_file):
     total = root.attrib.get('Total', '')
     uuid = root.find('cfdi:Complemento/tfd:TimbreFiscalDigital', namespaces=namespaces).attrib.get('UUID', '')
     fecha_emision = root.attrib.get('Fecha', '')
-    impuestos = root.find('', namespaces=namespaces).attrib.get('Rfc', '')
+    impuestos = root.find('cfdi:Impuestos', namespaces=namespaces).attrib.get('TotalImpuestosTrasladados', '')
 
     return {
         'version': version,
@@ -318,3 +301,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
